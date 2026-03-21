@@ -17,6 +17,10 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
+        if self.DB_HOST.startswith("/"):
+            # Cloud Run Unix socket connection
+            return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@/{self.DB_NAME}?host={self.DB_HOST}"
+        # Standard TCP connection
         return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
 

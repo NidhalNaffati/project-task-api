@@ -24,6 +24,47 @@ docker compose exec app python scripts/seed.py
 
 ---
 
+## Cloud Deployment (GCP)
+
+This project includes automated bash scripts to deploy the API to **Google Cloud Run** and the database to **Cloud SQL (PostgreSQL)**.
+
+> **Note:** The deployment uses your active `gcloud` configuration. Ensure you are logged in and have selected your target project.
+
+### 1. Provision the Database
+
+This script enables required APIs, creates a Cloud SQL instance, provisions the database and user, and saves the credentials securely in Google Secret Manager.
+
+```bash
+# Authenticate with Google Cloud
+gcloud auth login
+
+# Run the database deployment
+./deploy-db.sh
+```
+
+**Take note of the `DB_PASSWORD`** that is printed at the end of this script.
+
+### 2. Deploy the API
+
+This script builds the Docker image, pushes it to Google Artifact Registry, authorizes Cloud Run to access the database's Public IP, and deploys the Cloud Run service.
+
+```bash
+export DB_PASSWORD="<password-from-step-1>"
+./deploy-app.sh
+```
+
+### 3. Test the Live API
+
+By default, Cloud Run deployments in restricted organizations (like university projects) cannot be made public. You must authenticate requests using your Google Identity Token.
+
+Test the live URL printed at the end of the deployment:
+
+```bash
+curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" https://<your-cloud-run-url>/
+```
+
+---
+
 ## API Endpoints
 
 ### Projects

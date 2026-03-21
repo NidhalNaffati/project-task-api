@@ -7,10 +7,26 @@ from app.api.v1.router import api_router
 from app.db.session import engine, Base
 
 
+import time
+from sqlalchemy.exc import OperationalError
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables on startup (Alembic handles migrations in production)
-    Base.metadata.create_all(bind=engine)
+    # Cloud Run's Cloud SQL proxy sidecar can take a second to start. 
+    # We retry the DB connection a few times before giving up.
+    retries = 5
+    for attempt in range(retries):
+        try:
+            Base.metadata.create_all(bind=engine)
+            print("Database connection successful.")
+            break
+        except OperationalError as e:
+            if attempt < retries - 1:
+                print(f"Database not ready, retrying in 2 seconds... (Attempt {attempt+1}/{retries})")
+                time.sleep(2)
+            else:
+                print("Failed to connect to the database after multiple attempts.")
+                raise e
     yield
 
 
