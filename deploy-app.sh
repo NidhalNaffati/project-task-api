@@ -132,6 +132,8 @@ gcloud run deploy "$SERVICE_NAME" \
   --set-env-vars="DB_NAME=${DB_NAME}" \
   --set-env-vars="DB_USER=${DB_USER}" \
   --set-env-vars="DB_PASSWORD=${DB_PASSWORD}" \
+  --set-env-vars="IMAGE_TAG=${IMAGE_TAG}" \
+  --set-env-vars="IMAGE_URI=${IMAGE_URI}" \
   --concurrency="$CLOUD_RUN_CONCURRENCY" \
   --min-instances="$CLOUD_RUN_MIN_INSTANCES" \
   --max-instances="$CLOUD_RUN_MAX_INSTANCES" \
