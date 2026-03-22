@@ -1,8 +1,13 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from typing import Optional
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env")
+
+    # If set, this takes precedence over the individual DB_* fields.
+    # Useful for tests (SQLite) and local development.
+    DATABASE_URL: Optional[str] = None
 
     # ── Database connection ──────────────────────────────────────────────────
     DB_HOST: str = "db"
@@ -16,7 +21,10 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "Project & Task API"
 
     @property
-    def DATABASE_URL(self) -> str:
+    def database_url(self) -> str:
+        # Allow DATABASE_URL env var / field to override.
+        if self.DATABASE_URL:
+            return self.DATABASE_URL
         if self.DB_HOST.startswith("/"):
             # Cloud Run Unix socket connection
             return f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}@/{self.DB_NAME}?host={self.DB_HOST}"
