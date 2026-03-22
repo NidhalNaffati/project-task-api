@@ -1,209 +1,326 @@
-# Project & Task API
+<h1 align="center">⚡ Project Task API</h1>
 
-A REST API to manage **Projects** and **Tasks** with a many-to-many relationship, built with FastAPI, PostgreSQL, and Docker.
+<p align="center">
+  A production-ready REST API for managing <b>Projects</b> and <b>Tasks</b>.
+</p>
+
+<p align="center">
+  <img src="./docs/Python-logo-notext.png" alt="Python 3.12" height="40" />
+  &nbsp;
+  <img src="./docs/FastAPI_logo.svg.png" alt="FastAPI" height="40" />
+  &nbsp;
+  <img src="./docs/OpenAPI_Logo_Pantone.svg.png" alt="OpenAPI" height="40" />
+  &nbsp;
+  <img src="./docs/Postgresql_elephant.png" alt="PostgreSQL 16" height="40" />
+  &nbsp;
+  <img src="./docs/Docker_logo.png" alt="Docker" height="40" />
+  &nbsp;
+  <img src="./docs/Google_Cloud_logo.svg.png" alt="Google Cloud" height="40" />
+  &nbsp;
+  <img src="./docs/github-actions.png" alt="GitHub Actions" height="40" />
+</p>
+
+<p align="center">
+  <a href="#-quickstart">Quickstart</a> ·
+  <a href="#-api-endpoints">Endpoints</a> ·
+  <a href="#-architecture">Architecture</a> ·
+  <a href="#-design-decisions--trade-offs">Design Decisions</a> ·
+  <a href="#️-cicd--gcp-deployment">Deployment</a>
+</p>
+
+> **Assignment by Nidhal Naffati** — [nidhalnaffati.dev](https://nidhalnaffati.dev) · nidhalnaffati@gmail.com · Last updated: 2026-03-22
 
 ---
 
-## Quick Start
+## 🌐 Live deployment
+
+The API is deployed and running on **GCP Cloud Run** — no local setup needed to explore it:
+
+| Interface | URL |
+|---|---|
+| 🟢 Health check | https://project-task-api-jzrcrw37nq-ew.a.run.app/ |
+| 📖 Swagger UI | https://project-task-api-jzrcrw37nq-ew.a.run.app/docs |
+| 📄 ReDoc | https://project-task-api-jzrcrw37nq-ew.a.run.app/redoc |
+
+---
+
+## Contents
+
+- [What this service does](#-what-this-service-does)
+- [Quickstart](#-quickstart)
+- [Architecture](#-architecture)
+- [API endpoints](#-api-endpoints)
+- [Database model](#️-database-model)
+- [Design decisions & trade-offs](#-design-decisions--trade-offs)
+- [Testing](#-testing)
+- [CI/CD & GCP deployment](#️-cicd--gcp-deployment)
+- [Repository structure](#-repository-structure)
+- [If this were production](#-if-this-were-production)
+
+---
+
+## 📌 What this service does
+
+A REST API to manage **Projects**, **Tasks**, and the **many-to-many relationship** between them. A task can belong to multiple projects; projects expose their task list directly.
+
+| Requirement | Implemented via | Location |
+|---|---|---|
+| CRUD Projects | `GET/POST/PATCH/DELETE /api/v1/projects/` | `app/api/v1/endpoints/projects.py` |
+| CRUD Tasks | `GET/POST/PATCH/DELETE /api/v1/tasks/` | `app/api/v1/endpoints/tasks.py` |
+| Filter tasks by tag | `GET /api/v1/tasks/?tag=backend` | `task_service.get_by_tag()` |
+| Tasks for a project | `GET /api/v1/projects/{id}/tasks` | `project_service.get_tasks()` |
+| Many-to-many (Task ↔ Project) | `project_task` association table | `app/models/models.py` |
+| Docker + Compose | `docker compose up --build` | `Dockerfile`, `docker-compose.yml` |
+
+---
+
+## 🚀 Quickstart
+
+### Option A — Live (no setup needed)
+
+The API is already deployed on GCP Cloud Run. You can explore and call it directly:
 
 ```bash
-git clone <your-repo-url>
-cd project-task-api
-docker compose up --build
+# Filter tasks by tag — no local setup required
+curl -s 'https://project-task-api-jzrcrw37nq-ew.a.run.app/api/v1/tasks/?tag=backend' | jq
+
+# Create a project on the live API
+curl -s -X POST https://project-task-api-jzrcrw37nq-ew.a.run.app/api/v1/projects/ \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Website Redesign","budget":50000,"hours_used":0}' | jq
 ```
 
-The API will be available at **http://localhost:8000**  
-Interactive docs (Swagger UI): **http://localhost:8000/docs**  
-Alternative docs (ReDoc): **http://localhost:8000/redoc**
+Or open the interactive docs: **https://project-task-api-jzrcrw37nq-ew.a.run.app/docs**
 
-### Seed sample data
+### Option B — Run locally with Docker
 
 ```bash
+docker compose up --build
+
+# Optional: seed sample data
 docker compose exec app python scripts/seed.py
 ```
 
----
+Then open:
 
-## Cloud Deployment (GCP)
+| Interface | URL |
+|---|---|
+| Swagger UI | http://localhost:8000/docs |
+| ReDoc | http://localhost:8000/redoc |
+| Health check | http://localhost:8000/ |
 
-This project includes automated bash scripts to deploy the API to **Google Cloud Run** and the database to **Cloud SQL (PostgreSQL)**.
+<p align="center">
+  <img src="./docs/swagger-ui.png" alt="Swagger UI showing Project & Task API endpoints" width="860" />
+</p>
 
-> **Note:** The deployment uses your active `gcloud` configuration. Ensure you are logged in and have selected your target project.
-
-### 1. Provision the Database
-
-This script enables required APIs, creates a Cloud SQL instance, provisions the database and user, and saves the credentials securely in Google Secret Manager.
-
-```bash
-# Authenticate with Google Cloud
-gcloud auth login
-
-# Run the database deployment
-./deploy-db.sh
-```
-
-**Take note of the `DB_PASSWORD`** that is printed at the end of this script.
-
-### 2. Deploy the API
-
-This script builds the Docker image, pushes it to Google Artifact Registry, authorizes Cloud Run to access the database's Public IP, and deploys the Cloud Run service.
+### Smoke test with curl (local)
 
 ```bash
-export DB_PASSWORD="<password-from-step-1>"
-./deploy-app.sh
-```
+# Create a project
+curl -s -X POST http://localhost:8000/api/v1/projects/ \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Website Redesign","budget":50000,"hours_used":0}' | jq
 
-### 3. Test the Live API
+# Create a task
+curl -s -X POST http://localhost:8000/api/v1/tasks/ \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Design schema","tags":["backend","database"]}' | jq
 
-By default, Cloud Run deployments in restricted organizations (like university projects) cannot be made public. You must authenticate requests using your Google Identity Token.
-
-Test the live URL printed at the end of the deployment:
-
-```bash
-curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" https://<your-cloud-run-url>/
+# Filter tasks by tag
+curl -s 'http://localhost:8000/api/v1/tasks/?tag=backend' | jq
 ```
 
 ---
 
-## API Endpoints
+## 🏗 Architecture
+
+The service follows a strict layered design — no business logic leaks into routers, no DB access in schemas.
+
+```
+HTTP client → Router → Service → ORM Model → PostgreSQL
+              (validation   (business    (SQLAlchemy)
+               + DI)         logic)
+```
+
+| Layer | Responsibility | Location |
+|---|---|---|
+| **Routers** | HTTP routes, response models, `Depends(get_db)` injection | `app/api/v1/endpoints/*` |
+| **Services** | Business rules, CRUD, raises `HTTPException` on domain errors | `app/services/*` |
+| **Models** | SQLAlchemy ORM only — no API logic | `app/models/models.py` |
+| **Schemas** | Pydantic v2 request/response contracts + validation | `app/schemas/schemas.py` |
+
+**Request lifecycle:** Client → FastAPI parses & validates via Pydantic → `get_db()` injects session → service persists via SQLAlchemy → response serialized by `response_model`.
+
+---
+
+## 🔌 API endpoints
+
+Full interactive documentation available on the live deployment at [`/docs`](https://project-task-api-jzrcrw37nq-ew.a.run.app/docs) (Swagger) and [`/redoc`](https://project-task-api-jzrcrw37nq-ew.a.run.app/redoc).
 
 ### Projects
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Path | Description |
+|---|---|---|
 | `GET` | `/api/v1/projects/` | List all projects |
 | `POST` | `/api/v1/projects/` | Create a project |
-| `GET` | `/api/v1/projects/{id}` | Get a project (includes its tasks) |
-| `PATCH` | `/api/v1/projects/{id}` | Partially update a project |
-| `DELETE` | `/api/v1/projects/{id}` | Delete a project |
-| `GET` | `/api/v1/projects/{id}/tasks` | **Get all tasks belonging to a project** |
-| `POST` | `/api/v1/projects/{id}/tasks/{task_id}` | Assign a task to a project |
-| `DELETE` | `/api/v1/projects/{id}/tasks/{task_id}` | Remove a task from a project |
+| `GET` | `/api/v1/projects/{id}` | Get project with its tasks |
+| `PATCH` | `/api/v1/projects/{id}` | Partial update |
+| `DELETE` | `/api/v1/projects/{id}` | Delete project |
+| `GET` | `/api/v1/projects/{id}/tasks` | List project's tasks |
+| `POST` | `/api/v1/projects/{id}/tasks/{task_id}` | Assign task to project |
+| `DELETE` | `/api/v1/projects/{id}/tasks/{task_id}` | Remove task from project |
 
 ### Tasks
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
+| Method | Path | Description |
+|---|---|---|
 | `GET` | `/api/v1/tasks/` | List all tasks |
-| `GET` | `/api/v1/tasks/?tag=backend` | **Filter tasks by tag** |
+| `GET` | `/api/v1/tasks/?tag=backend` | Filter tasks by tag |
 | `POST` | `/api/v1/tasks/` | Create a task |
-| `GET` | `/api/v1/tasks/{id}` | Get a task (includes its projects) |
-| `PATCH` | `/api/v1/tasks/{id}` | Partially update a task |
-| `DELETE` | `/api/v1/tasks/{id}` | Delete a task |
+| `GET` | `/api/v1/tasks/{id}` | Get task with its projects |
+| `PATCH` | `/api/v1/tasks/{id}` | Partial update |
+| `DELETE` | `/api/v1/tasks/{id}` | Delete task |
 
-### Health
+### Error handling
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Health check |
-
----
-
-## Example Requests
-
-**Create a project**
-```bash
-curl -X POST http://localhost:8000/api/v1/projects/ \
-  -H "Content-Type: application/json" \
-  -d '{"name": "Website Redesign", "budget": 50000, "hours_used": 0}'
-```
-
-**Create a task**
-```bash
-curl -X POST http://localhost:8000/api/v1/tasks/ \
-  -H "Content-Type: application/json" \
-  -d '{"title": "Design schema", "tags": ["backend", "database"]}'
-```
-
-**Assign task 1 to project 1**
-```bash
-curl -X POST http://localhost:8000/api/v1/projects/1/tasks/1
-```
-
-**Get all tasks for project 1**
-```bash
-curl http://localhost:8000/api/v1/projects/1/tasks
-```
-
-**Filter tasks by tag**
-```bash
-curl "http://localhost:8000/api/v1/tasks/?tag=backend"
-```
+| Scenario | HTTP status | Enforced in |
+|---|---|---|
+| Resource not found | `404` | `get_by_id()` in services |
+| Task already assigned to project | `409` | `project_service.assign_task()` |
+| DB integrity error | `409` | Global handler in `app/main.py` |
+| Invalid input (budget ≤ 0, empty tag…) | `422` | Pydantic schemas |
 
 ---
 
-## Running Tests
+## 🗄️ Database model
 
-Tests use **SQLite in-memory** so no running database is required.
+Three tables: `projects`, `tasks`, and a `project_task` association table for the many-to-many relationship.
+
+<p align="center">
+  <img src="./docs/db-er-diagram.png" alt="ER diagram: projects, tasks, and project_task" width="860" />
+</p>
+
+<p align="center">
+  <img src="./docs/db-tasks-table.png" alt="PostgreSQL UI showing tasks table with tags array column" width="860" />
+</p>
+---
+
+## 🧠 Design decisions & trade-offs
+
+### PATCH vs PUT
+**PATCH** is used for updates. It allows partial payloads — callers only send fields they want to change. PUT would require the full resource on every update, which is unnecessarily strict for a management API.
+
+### `tags` as `ARRAY` vs a normalized table
+**`ARRAY(String)`** on the Task row. Tags are labels, not entities — there are no cross-tag queries or tag metadata requirements. This avoids a join table while still supporting `= ANY(tags)` filtering natively in Postgres.
+
+### Lifespan pattern for startup
+Uses FastAPI's **lifespan** context manager (not the deprecated `@app.on_event`) to run `create_all()` at startup. Cleaner lifecycle, fully compatible with async.
+
+### Health check endpoints
+**Three health routes** — `GET /` (basic), `/version`, `/build` — return version info derived from env vars, a `VERSION` file, or `GIT_SHA`. Useful for Cloud Run revision tracking and zero-downtime deploy verification.
+
+### SQLite for tests
+The test suite uses **SQLite in-memory** via a `conftest.py` override of `get_db`. No Docker required to run tests — fast, isolated, zero external dependencies in CI.
+
+### `create_all` vs Alembic
+**`create_all()`** on startup keeps things simple for this exercise. Alembic is present in `requirements.txt` as the natural next step for production migration management.
+
+---
+
+## 🧪 Testing
+
+> Tests run without Docker. `conftest.py` sets `DATABASE_URL=sqlite:///./test.db` and overrides `get_db` before the app is imported — no external services required.
 
 ```bash
-# Install dependencies locally
 pip install -r requirements.txt
+pytest -q
+```
 
-# Run tests
-pytest -v
+| Test file | What's covered |
+|---|---|
+| `tests/test_projects.py` | Full CRUD, many-to-many assignment & removal |
+| `tests/test_tasks.py` | Full CRUD, tag normalization, tag filtering, validation edge cases (missing title, empty tag, invalid budget) |
+
+---
+
+## ☁️ CI/CD & GCP deployment
+
+Two bash scripts handle the full deployment pipeline to **Google Cloud Run** + **Cloud SQL**.
+
+<p align="center">
+  <img src="./docs/cloud-run-logs.png" alt="Google Cloud Logs Explorer showing Cloud Run revision logs" width="860" />
+</p>
+
+### Step 1 — Provision the database (`deploy-db.sh`)
+
+1. Enables Cloud SQL Admin API + Secret Manager
+2. Creates a **Cloud SQL PostgreSQL 16** instance
+3. Creates the database and user
+4. Stores credentials in **Secret Manager** (`DB_NAME`, `DB_USER`, `DB_PASSWORD`)
+
+```bash
+chmod +x deploy-db.sh && ./deploy-db.sh
+```
+
+### Step 2 — Deploy the application (`deploy-app.sh`)
+
+1. Enables Artifact Registry, Cloud Run, and Cloud Build APIs
+2. Builds and pushes the Docker image to Artifact Registry
+3. Fetches the Cloud SQL public IP
+4. Deploys to **Cloud Run** with env vars injected (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`)
+
+```bash
+# Use the outputs from step 1
+export CLOUD_SQL_CONNECTION_NAME="project:region:instance"
+export DB_PASSWORD="<from deploy-db.sh output>"
+
+chmod +x deploy-app.sh && ./deploy-app.sh
+```
+---
+
+## 📁 Repository structure
+
+```
+project-task-api/
+├── app/
+│   ├── main.py                  # FastAPI entrypoint + lifespan startup
+│   ├── api/v1/endpoints/
+│   │   ├── projects.py          # Project routes
+│   │   └── tasks.py             # Task routes
+│   ├── core/config.py           # Settings (env vars → database URL, etc.)
+│   ├── db/session.py            # SQLAlchemy engine + get_db()
+│   ├── models/models.py         # ORM models + project_task association table
+│   ├── schemas/schemas.py       # Pydantic request/response schemas
+│   └── services/
+│       ├── project_service.py   # Business logic for projects
+│       └── task_service.py      # Business logic for tasks
+├── scripts/seed.py              # Optional sample data seed
+├── tests/
+│   ├── conftest.py              # SQLite override + session fixture
+│   ├── test_projects.py
+│   └── test_tasks.py
+├── docs/                        # Images and supplementary docs
+├── Dockerfile
+├── docker-compose.yml
+├── deploy-db.sh                 # Cloud SQL provisioning
+└── deploy-app.sh                # Cloud Run deploy
 ```
 
 ---
 
-## Architecture & Key Decisions
+## 🔭 If this were production
 
-### Project structure
-
-```
-app/
-├── api/v1/endpoints/   # Route handlers (thin layer — delegate to services)
-├── core/               # App configuration (pydantic-settings)
-├── db/                 # SQLAlchemy engine, session, Base
-├── models/             # ORM models
-├── schemas/            # Pydantic request/response schemas
-└── services/           # Business logic (CRUD operations)
-```
-
-### Layered architecture
-
-The codebase follows a clean **router → service → model** separation:
-
-- **Routers** handle HTTP concerns only (status codes, dependency injection).
-- **Services** contain all business logic and raise `HTTPException` when invariants are violated (e.g. duplicate assignment, not found).
-- **Models** are pure SQLAlchemy declarations with no business logic.
-
-This makes the code testable in isolation and easy to extend.
-
-### Many-to-many relationship
-
-Tasks and Projects share a many-to-many relationship via an explicit `project_task` association table with `CASCADE` deletes. A task can belong to multiple projects simultaneously, and a project can contain multiple tasks. The relationship is managed through the `/projects/{id}/tasks/{task_id}` sub-resource endpoints, keeping the task resource itself free of project-specific concerns.
-
-### Tag filtering
-
-Tags are stored as a native **PostgreSQL `ARRAY(String)`** column on the Task model. Filtering uses SQLAlchemy's `any_()` construct, which translates to a native `= ANY(tags)` SQL expression — efficient and index-friendly without requiring a separate tags table for this scale.
-
-> **Trade-off:** A normalised tags table would be better for large-scale tag analytics (counts, autocomplete). For this scope, the array column keeps the schema simple and queries fast.
-
-### PATCH over PUT
-
-All update endpoints use `PATCH` (partial update) rather than `PUT` (full replacement). This is more ergonomic for clients — they only need to send the fields they want to change — and avoids accidentally nulling out fields the client didn't intend to modify.
-
-### Input validation
-
-Pydantic schemas enforce constraints at the API boundary:
-- `budget` must be `> 0`
-- `hours_used` must be `>= 0`
-- Tags are trimmed and lowercased on ingress, and empty string tags are rejected
-- String fields have `min_length` and `max_length` bounds
-
-### Docker & health checks
-
-The `docker-compose.yml` uses a `healthcheck` on the `db` service with `pg_isready`, and the `app` service declares `depends_on: db: condition: service_healthy`. This ensures the API container only starts after PostgreSQL is ready to accept connections, preventing connection errors on cold starts.
+| Area | Current state | Production path |
+|---|---|---|
+| Migrations | `create_all()` on startup | Alembic with versioned migrations + deploy job |
+| Pagination | Full list responses | Cursor or offset pagination on list endpoints |
+| Auth | None (out of scope) | JWT / OAuth2 + RBAC |
+| Secrets | Env vars in Cloud Run | Mount directly from Secret Manager into Cloud Run |
+| Observability | Cloud Run logs | Structured logging, OpenTelemetry, Cloud Monitoring |
+| Tag indexing | No index on `tags` | GIN index on `tasks.tags` for large datasets |
 
 ---
 
-## Assumptions & Trade-offs
-
-| Decision | Rationale |
-|----------|-----------|
-| `Base.metadata.create_all()` on startup | Sufficient for an assignment; in production this would be replaced by Alembic migrations for controlled schema versioning |
-| SQLite for tests | Avoids spinning up a real Postgres instance in CI; the one caveat is that `ARRAY` is Postgres-specific, so the tag filter test uses SQLite-compatible behaviour via the service layer |
-| No authentication | Out of scope per the assignment brief |
-| No pagination | Acceptable for the dataset sizes implied by the assignment |
-| `PATCH` instead of `PUT` | More REST-idiomatic for partial updates |
+<p align="center">
+  Built by <a href="https://nidhalnaffati.dev">Nidhal Naffati</a> · <a href="mailto:nidhalnaffati@gmail.com">nidhalnaffati@gmail.com</a>
+</p>
